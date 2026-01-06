@@ -47,7 +47,7 @@ def init_db():
             (3, 'Global Summit 2026', 'WorldBank', '$5M', 'Planning', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800', 'Coordinate exclusive invite-only summit marketing.', 'N/A', 1),
             (4, 'Black Operations IV', 'Unknown', 'Classified', 'Redacted', 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800', 'Classified Operation: Deployment of autonomous kinetic tracking assets in Sector 7. Access requires Level 5 clearance.', 'N/A', 0),
             (5, 'Quantum Grid', 'TechGiant', '$750M', 'Active', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=800', 'National energy grid modernization campaign.', '210%', 1),
-            (6, 'Deep Sea Mining', 'ResourceCo', '$80M', 'Active', 'https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?auto=format&fit=crop&q=80&w=800', 'Extraction technology public relations.', '500%', 1)
+            (6, 'Deep Sea Mining', 'ResourceCo', '$80M', 'Active', 'https://images.unsplash.com/photo-1578328819058-b69f3a709475?auto=format&fit=crop&q=80&w=800', 'Extraction technology public relations.', '500%', 1)
         ]
         c.executemany('INSERT INTO campaigns VALUES (?,?,?,?,?,?,?,?,?)', campaigns_data)
 
@@ -216,18 +216,39 @@ def weather():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
-    # Function 4: Secure Transfer (Dummy)
+    # Function 4: Secure Transfer (VULNERABLE)
+    # VULNERABILITY: Remote Code Execution (RCE) via Insecure File Upload
+    # The system "audits" Python scripts by executing them immediately.
     if request.method == 'POST':
-        return "<h1>File Encrypted & Uploaded to Secure Vault.</h1><a href='/dashboard'>Return</a>"
+        if 'file' not in request.files:
+            return "No file part"
+        file = request.files['file']
+        if file.filename == '':
+            return "No selected file"
+        
+        if file:
+            # DIRECT RCE: If it's a python script, execute it.
+            if file.filename.endswith('.py'):
+                try:
+                    content = file.read().decode('utf-8')
+                    # DANGER: Executing arbitrary code from user
+                    exec(content)
+                    return "<h1>System Patch Applied. Script Executed Successfully.</h1><p>Check server logs for output.</p><a href='/dashboard'>Return</a>"
+                except Exception as e:
+                    return f"<h1>Execution Error</h1><pre>{str(e)}</pre>"
+            
+            return f"<h1>File {file.filename} Encrypted & Storage.</h1><a href='/dashboard'>Return</a>"
+
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="en">
     <head><title>Secure Transfer</title><script src="https://cdn.tailwindcss.com"></script></head>
     <body class="bg-gray-50 flex items-center justify-center h-screen">
         <form method="POST" enctype="multipart/form-data" class="bg-white p-8 border border-gray-200 shadow-lg text-center">
-            <h2 class="text-xl font-bold mb-4">Secure Uplink</h2>
-            <input type="file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 mb-4"/>
-            <button class="bg-yellow-500 text-white px-4 py-2 font-bold uppercase transition hover:bg-yellow-600">Transmit</button>
+            <h2 class="text-xl font-bold mb-4">System Update Uplink</h2>
+            <p class="text-xs text-red-500 mb-4 uppercase">Warning: .py files will be auto-executed for patching.</p>
+            <input type="file" name="file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 mb-4"/>
+            <button class="bg-yellow-500 text-white px-4 py-2 font-bold uppercase transition hover:bg-yellow-600">Transmit Patch</button>
         </form>
     </body></html>
     """)
