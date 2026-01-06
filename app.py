@@ -95,14 +95,16 @@ def add_headers(response):
 
 # --- SECURITY FILTER (WAF - Cloudflare Simulation) ---
 def security_filter(raw_data):
-    # WAF Logic: Checks RAW bytes.
+    # WAF Logic: Checks RAW bytes, then unquotes ONCE to catch standard encoding.
     decoded = raw_data.decode('utf-8', errors='ignore').lower()
+    checking = unquote(decoded)
+    
     blacklist = [
-        '<script>', 'javascript:', 'vbscript:', 'onload', 'onmouseover', 'eval(', 'alert(', 
-        'union select', 'union all select' 
+        '<script', 'javascript:', 'vbscript:', '<iframe', '<object', '<embed',
+        'union select', 'union all select', '<img', '<svg'
     ]
     for bad in blacklist:
-        if bad in decoded:
+        if bad in checking:
             return False
     return True
 
@@ -143,7 +145,7 @@ def api_search():
         return render_template_string(CLOUDFLARE_BLOCK_TEMPLATE), 403
 
     # Business Logic
-    q = request.args.get('q', '')
+    q = unquote(request.args.get('q', ''))
     conn = get_db()
     c = conn.cursor()
     try:
@@ -161,7 +163,25 @@ def api_search():
     except Exception as e:
         return jsonify({'error': str(e), 'message': f"System Error processing: {q}"}), 500
 
-# --- FUNCTIONAL FEATURES (NEW) ---
+@app.route('/search')
+def search_page():
+    # WAF Check (Blocks standard XSS)
+    if not security_filter(request.query_string):
+        return render_template_string(CLOUDFLARE_BLOCK_TEMPLATE), 403
+
+    # Business Logic: DOUBLE DECODING allows bypass
+    # request.args.get decodes once, unquote decodes the second layer
+    q = unquote(request.args.get('q', ''))
+    conn = get_db()
+    c = conn.cursor()
+    rows = []
+    if q:
+        try:
+            sql = f"SELECT * FROM campaigns WHERE title LIKE '%{q}%' AND is_public=1"
+            c.execute(sql)
+            rows = c.fetchall()
+        except: pass
+    return render_template_string(SEARCH_TEMPLATE, q=q, rows=[dict(r) for r in rows])
 
 @app.route('/inventory')
 def inventory():
@@ -307,6 +327,14 @@ def list_backups(filename=None):
     if filename: return f"Encrypted content..."
     return "<h1>Index of /backups/</h1><hr><pre>db_backup.sql</pre>"
 
+@app.route('/robots.txt')
+def robots():
+    return "User-agent: *\nDisallow: /api/\nDisallow: /backups/\nDisallow: /.git/\n"
+
+@app.route('/api/')
+def api_base():
+    return "<h1>403 Forbidden</h1><p>Access to API directory is restricted.</p>", 403
+
 @app.route('/.git/')
 def git_expose():
     return "ref: refs/heads/main\n"
@@ -444,9 +472,11 @@ HTML_TEMPLATE = """
         <div class="max-w-7xl mx-auto px-6">
             <div class="flex flex-col lg:flex-row gap-12 items-center justify-between">
                 <div class="w-full lg:w-1/2 relative group">
-                    <input type="text" id="search-input" placeholder="Search" 
-                        class="w-full bg-gray-800 border-2 border-transparent p-6 text-white focus:border-yellow-500 outline-none placeholder-gray-500 font-mono text-lg transition">
-                    <button onclick="searchProjects()" class="absolute right-4 top-4 text-yellow-500 font-bold text-sm uppercase px-6 py-2 bg-gray-900 border border-yellow-500 hover:bg-yellow-500 hover:text-black transition">Scan Grid</button>
+                    <form action="/search" method="GET">
+                        <input type="text" name="q" placeholder="Search" 
+                            class="w-full bg-gray-800 border-2 border-transparent p-6 text-white focus:border-yellow-500 outline-none placeholder-gray-500 font-mono text-lg transition">
+                        <button type="submit" class="absolute right-4 top-4 text-yellow-500 font-bold text-sm uppercase px-6 py-2 bg-gray-900 border border-yellow-500 hover:bg-yellow-500 hover:text-black transition">Scan Grid</button>
+                    </form>
                 </div>
                 <div class="flex gap-16 text-center">
                     <div>
@@ -546,7 +576,8 @@ HTML_TEMPLATE = """
                         </div>
                     `).join('');
                 } else {
-                    container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12 font-mono uppercase tracking-widest">No operations detected in grid sector.</div>';
+                    const msg = data.message || 'No operations detected in grid sector.';
+                    container.innerHTML = `<div class="col-span-full text-center text-gray-400 py-12 font-mono uppercase tracking-widest">${msg}</div>`;
                 }
             } catch(e) {}
         }
@@ -874,22 +905,108 @@ ABOUT_TEMPLATE = """
 </body></html>
 """
 
+SEARCH_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Global Grid Scan | Tegh Industries</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Chakra Petch', sans-serif; }</style>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-gray-900 p-6 text-white flex justify-between">
+        <div class="font-bold tracking-tighter uppercase">Tegh // Search</div>
+        <a href="/" class="text-xs text-yellow-500 uppercase font-bold">Back to Grid</a>
+    </nav>
+    <div class="max-w-7xl mx-auto py-16 px-6">
+        <div class="mb-12">
+            <h1 class="text-4xl font-black uppercase text-gray-900">Scan Results</h1>
+            <p class="text-gray-400 mt-2 uppercase text-xs tracking-widest">QUERY_REF: {{ q|safe }}</p>
+        </div>
+        
+        <div class="grid md:grid-cols-3 gap-8">
+            {% for p in rows %}
+            <div class="bg-white border border-gray-200">
+                <img src="{{ p.image }}" class="h-40 w-full object-cover grayscale">
+                <div class="p-6">
+                    <h3 class="font-bold uppercase">{{ p.title }}</h3>
+                    <p class="text-xs text-gray-500 mt-2">{{ p.description[:100] }}...</p>
+                </div>
+            </div>
+            {% endfor %}
+            {% if not rows %}
+            <div class="col-span-full py-20 text-center border-2 border-dashed border-gray-200 text-gray-400 uppercase font-bold">
+                No telemetry found for sector: {{ q|safe }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
 CLOUDFLARE_BLOCK_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-    <title>Access Denied</title>
-    <style>body{font-family:sans-serif;background:#fff;color:#333;text-align:center;padding:50px}h1{color:#e00}</style>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Access denied | tegh-industries.com used Cloudflare to restrict access</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif; color: #404040; background-color: #fff; }
+        .cf-wrapper { width: 90%; max-width: 1000px; margin: 100px auto; }
+        .cf-header { display: flex; align-items: center; border-bottom: 1px solid #d9d9d9; padding-bottom: 24px; margin-bottom: 40px; }
+        .cf-logo { color: #f38020; font-size: 32px; font-weight: 700; display: flex; align-items: center; }
+        .cf-logo svg { height: 40px; margin-right: 12px; }
+        .cf-error-title { font-size: 48px; line-height: 1.1; margin-bottom: 8px; color: #000; font-weight: 400; }
+        .cf-error-code { font-size: 14px; font-weight: 700; color: #828282; text-transform: uppercase; margin-bottom: 40px; }
+        .cf-section { margin-bottom: 32px; }
+        .cf-section h2 { font-size: 24px; font-weight: 500; margin-bottom: 12px; color: #000; }
+        .cf-section p { font-size: 16px; line-height: 1.5; color: #313131; }
+        .cf-footer { border-top: 1px solid #d9d9d9; padding-top: 24px; margin-top: 60px; font-size: 13px; color: #828282; }
+        .cf-ray-id { font-family: monospace; font-weight: 700; color: #313131; }
+        .cf-footer-item { margin-bottom: 8px; }
+    </style>
 </head>
 <body>
-    <h1>Security Check Failed</h1>
-    <p>Your request was flagged by the Tegh Industries WAF.</p>
-    <hr>
-    <p>Ray ID: 1234567890</p>
+    <div class="cf-wrapper">
+        <header class="cf-header">
+            <div class="cf-logo">
+                <svg viewBox="0 0 44 28" fill="currentColor"><path d="M42.1 13.9c-.1-.1-.1-.3-.2-.4l-.2-.5c-.1-.2-.2-.4-.4-.5-.1-.1-.2-.2-.3-.3-.2-.2-.4-.3-.6-.5-.1 0-.2-.1-.3-.2-.3-.1-.5-.3-.8-.4l-.4-.1c-.3-.1-.7-.2-1-.2-.1 0-.3 0-.4-.1-.4 0-.8-.1-1.2-.1-.2 0-.3 0-.5.1-.3 0-.6.1-.9.1h-.2c-.3.1-.7.2-1 .3-.1 0-.1 0-.2.1-.3.1-.6.2-.8.4-.1.1-.2.2-.3.2-.2.2-.4.4-.6.6 0 .1-.1.1-.1.2-.2.2-.3.5-.5.7-.1.1-.1.2-.2.3-.1.2-.2.4-.3.7s-.1.4-.1.6c0 .1 0 .2-.1.3 0 .4-.1.8-.1 1.2 0 .1 0 .3.1.4 0 .3.1.6.1.9l.1.5c.1.3.2.6.3.8l.2.4c.1.3.3.6.5.8h.1c.2.3.4.5.6.7l.2.2c.2.2.5.4.7.5.1.1.2.1.3.2.3.2.6.3.9.4l.4.1c.3.1.6.2 1 .2l.4.1c.4 0 .8.1 1.2.1.1 0 .3 0 .4-.1.4 0 .9-.1 1.3-.1.1 0 .3 0 .4-.1.3-.1.7-.2 1-.3.1 0 .2-.1.3-.1.3-.1.6-.3.9-.4l.3-.2c.3-.2.5-.4.8-.7l.1-.1c.3-.3.5-.6.7-.9.1-.1.1-.2.2-.3.2-.3.3-.7.5-1l.1-.3c.1-.3.2-.7.3-1.1.1-.2.1-.4.1-.7 0-.1 0-.2.1-.3 0-.4.1-.8.1-1.2 0-.2 0-.4-.1-.6l-.1-1.2c0-.1 0-.3-.1-.4l-.1-.5c-.1-.3-.2-.6-.4-.8z"></path><path d="M19.4 12.3c.4-3.4 3.3-6.1 6.8-6.1 2.3 0 4.4 1.1 5.7 2.8.5-.3 1.1-.5 1.7-.5 1.8 0 3.2 1.4 3.2 3.2 0 .2 0 .5-.1.7 1.8.8 3.1 2.6 3.1 4.7 0 2.9-2.3 5.2-5.2 5.2H7.2c-3.1 0-5.7-2.6-5.7-5.7 0-2.6 1.8-4.8 4.3-5.4.1-3.6 3.1-6.5 6.7-6.5 1.5 0 2.9.5 4 1.4.7-1.1 1.9-1.9 3.3-2 1.5-.2 2.9.5 3.8 1.6l.1.1.1.1c.1.1.2.2.3.4z"></path></svg>
+                Cloudflare
+            </div>
+        </header>
+
+        <main>
+            <h1 class="cf-error-title">Access denied</h1>
+            <div class="cf-error-code">Error code 1020</div>
+
+            <section class="cf-section">
+                <h2>You do not have access to tegh-industries.com.</h2>
+                <p>The site owner may have set restrictions that prevent you from accessing the site. Contact the site owner for access or try loading the page again.</p>
+            </section>
+
+            <section class="cf-section">
+                <h2>What happened?</h2>
+                <p>This website is using a security service to protect itself from online attacks. The action you just performed triggered the security solution. There are several actions that could trigger this block including submitting a certain word or phrase, a SQL command or malformed data.</p>
+            </section>
+
+            <section class="cf-section">
+                <h2>What can I do to resolve this?</h2>
+                <p>You can email the site owner to let them know you were blocked. Please include what you were doing when this page came up and the Cloudflare Ray ID found at the bottom of this page.</p>
+            </section>
+        </main>
+
+        <footer class="cf-footer">
+            <div class="cf-footer-item font-mono">Cloudflare Ray ID: <span class="cf-ray-id">7b4a2f8e1c3d9a54</span> • Your IP: 127.0.0.1 • Performance &amp; security by Cloudflare</div>
+        </footer>
+    </div>
 </body>
 </html>
 """
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
