@@ -357,7 +357,7 @@ HTML_TEMPLATE = """
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Chakra Petch', sans-serif; background-color: #ffffff; color: #111111; }
+        body { font-family: 'Chakra Petch', sans-serif; background-color: #ffffff; color: #111111; scroll-behavior: smooth; }
         .nav-link { color: #4b5563; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; transition: 0.3s; }
         .nav-link:hover { color: #ca8a04; }
         .btn-primary { background-color: #eab308; color: white; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 2rem; transition: 0.3s; }
@@ -365,12 +365,28 @@ HTML_TEMPLATE = """
         .glass-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #e5e7eb; }
         .feature-card { border: 1px solid #e5e7eb; background: white; transition: 0.3s; }
         .feature-card:hover { border-color: #eab308; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); transform: translateY(-2px); }
+        
+        /* Parallax Styles */
+        .parallax {
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+        .hero-parallax {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)), url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1920');
+            min-height: 80vh;
+        }
+        .divider-parallax {
+            background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=1920');
+            height: 400px;
+        }
     </style>
 </head>
 <body class="antialiased bg-gray-50">
 
     <!-- Navbar -->
-    <nav class="fixed w-full z-50 glass-header">
+    <nav class="fixed w-full z-100 glass-header">
         <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
             <div class="flex items-center gap-3 cursor-pointer" onclick="window.location.href='/'">
                 <i class="fas fa-cube text-3xl text-yellow-500"></i>
@@ -395,67 +411,99 @@ HTML_TEMPLATE = """
         </div>
     </nav>
 
-    <!-- Hero -->
-    <header class="pt-32 pb-20 px-6 bg-white relative">
-        <div class="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+    <!-- Hero Section with Parallax -->
+    <header class="parallax hero-parallax flex items-center pt-24">
+        <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center w-full">
             <div>
                 <div class="inline-block bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 mb-6 uppercase tracking-widest">Global Defense Infrastructure</div>
-                <h1 class="text-6xl font-bold text-gray-900 leading-tight mb-6">
-                    ENGINEERING <br> <span class="text-yellow-500">SUPERIORITY</span>
+                <h1 class="text-7xl font-bold text-gray-900 leading-tight mb-6 uppercase">
+                    Engineering <br> <span class="text-yellow-500 italic">Superiority</span>
                 </h1>
-                <p class="text-xl text-gray-500 mb-10 max-w-lg leading-relaxed">
-                    Advanced logistics, kinetic tracking, and resource extraction solutions for a modernized world.
+                <p class="text-xl text-gray-600 mb-10 max-w-lg leading-relaxed font-medium">
+                    Integrated logistics, kinetic tracking, and strategic asset management for modern industrial dominance.
                 </p>
                 <div class="flex gap-4">
                     <button class="btn-primary" onclick="window.location.href='/about'">Mission Brief</button>
-                    <button class="border border-gray-300 text-gray-600 px-8 py-3 font-bold uppercase text-xs hover:border-yellow-500 transition">View Contracts</button>
+                    <button class="border-2 border-gray-900 text-gray-900 px-8 py-3 font-bold uppercase text-xs hover:bg-gray-900 hover:text-white transition">Contract Fleet</button>
                 </div>
             </div>
-            <div class="relative bg-gray-100 h-96 w-full overflow-hidden rounded-sm">
-                <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80" class="object-cover w-full h-full grayscale opacity-80 hover:grayscale-0 transition duration-700">
+            <div class="hidden md:block relative">
+                 <div class="border-l-8 border-yellow-500 pl-8">
+                    <div class="text-gray-400 font-mono text-sm mb-2">// CORE SYSTEMS ACTIVE</div>
+                    <div class="text-gray-900 font-bold text-lg mb-4 uppercase">Status: 100% Nominal</div>
+                    <div class="w-full bg-gray-200 h-1">
+                        <div class="bg-yellow-500 h-1 w-full animate-pulse"></div>
+                    </div>
+                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Search / Stats Bar -->
-    <div class="bg-gray-900 py-12 text-white">
+    <!-- Stats / Search Bar -->
+    <div class="bg-gray-900 py-16 text-white relative z-10 shadow-2xl">
         <div class="max-w-7xl mx-auto px-6">
-            <div class="flex flex-col md:flex-row gap-8 items-center justify-between">
-                <div class="w-full md:w-1/2 relative">
+            <div class="flex flex-col lg:flex-row gap-12 items-center justify-between">
+                <div class="w-full lg:w-1/2 relative group">
                     <input type="text" id="search-input" placeholder="Search" 
-                        class="w-full bg-gray-800 border-none p-5 text-white focus:ring-2 focus:ring-yellow-500 placeholder-gray-500 font-mono text-sm">
-                    <button onclick="searchProjects()" class="absolute right-3 top-3 text-yellow-500 font-bold text-xs uppercase px-4 py-2 hover:bg-gray-700">Scan</button>
+                        class="w-full bg-gray-800 border-2 border-transparent p-6 text-white focus:border-yellow-500 outline-none placeholder-gray-500 font-mono text-lg transition">
+                    <button onclick="searchProjects()" class="absolute right-4 top-4 text-yellow-500 font-bold text-sm uppercase px-6 py-2 bg-gray-900 border border-yellow-500 hover:bg-yellow-500 hover:text-black transition">Scan Grid</button>
                 </div>
-                <div class="flex gap-12 text-center">
+                <div class="flex gap-16 text-center">
                     <div>
-                        <div class="text-3xl font-bold text-yellow-500">98.4%</div>
-                        <div class="text-xs text-gray-500 uppercase tracking-widest">Grid Uptime</div>
+                        <div class="text-5xl font-black text-yellow-500">98.4%</div>
+                        <div class="text-xs text-gray-400 uppercase tracking-[0.3em] mt-2">Grid Uptime</div>
                     </div>
                     <div>
-                        <div class="text-3xl font-bold text-yellow-500">142</div>
-                        <div class="text-xs text-gray-500 uppercase tracking-widest">Active nodes</div>
+                        <div class="text-5xl font-black text-yellow-500">1.2k</div>
+                        <div class="text-xs text-gray-400 uppercase tracking-[0.3em] mt-2">Active Nodes</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Parallax Divider -->
+    <div class="parallax divider-parallax flex items-center justify-center">
+        <div class="text-center">
+            <h2 class="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter mb-4">Precision Intelligence</h2>
+            <div class="w-24 h-2 bg-yellow-500 mx-auto"></div>
+        </div>
+    </div>
+
     <!-- Results Area -->
-    <section class="py-20 bg-gray-50">
+    <section class="py-24 bg-white">
         <div class="max-w-7xl mx-auto px-6">
-            <h3 class="text-2xl font-bold text-gray-900 uppercase mb-12 border-l-4 border-yellow-500 pl-4">Active Operations</h3>
-            <div id="results-area" class="grid md:grid-cols-3 gap-8">
+            <div class="flex justify-between items-end mb-16">
+                <div>
+                    <h3 class="text-lg font-bold text-yellow-600 uppercase tracking-widest mb-2">Operations Portal</h3>
+                    <h2 class="text-4xl font-black text-gray-900 uppercase">Strategic Deployments</h2>
+                </div>
+                <div class="text-xs font-mono text-gray-400 uppercase">Showing current global contracts</div>
+            </div>
+            <div id="results-area" class="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
                 <!-- JS LOADS CONTENT HERE -->
             </div>
         </div>
     </section>
 
-    <footer class="bg-white border-t border-gray-200 py-12">
-        <div class="max-w-7xl mx-auto px-6 flex justify-between items-center text-xs text-gray-400 uppercase tracking-widest">
-            <div>&copy; 2026 Tegh Industries. All Rights Reserved.</div>
-            <div class="space-x-6">
-                <a href="/redirect?url=/privacy" class="hover:text-yellow-600">Privacy</a>
-                <a href="/redirect?url=/legal" class="hover:text-yellow-600">Legal</a>
+    <footer class="bg-gray-900 border-t border-gray-800 py-20 text-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-cube text-4xl text-yellow-500"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-wider">TEGH</h1>
+                        <span class="text-xs font-bold text-gray-500 tracking-[0.3em] uppercase block">INDUSTRIES</span>
+                    </div>
+                </div>
+                <div class="flex gap-12 text-sm font-bold uppercase tracking-widest text-gray-400">
+                    <a href="/redirect?url=/privacy" class="hover:text-yellow-500 transition">Privacy</a>
+                    <a href="/redirect?url=/legal" class="hover:text-yellow-500 transition">Legal</a>
+                    <a href="/about" class="hover:text-yellow-500 transition">Mission</a>
+                </div>
+            </div>
+            <div class="mt-20 pt-8 border-t border-gray-800 text-center text-xs text-gray-500 uppercase tracking-[0.5em]">
+                &copy; 2026 Tegh Industries. Global Defense Grid.
             </div>
         </div>
     </footer>
@@ -481,20 +529,24 @@ HTML_TEMPLATE = """
                 
                 if (data.results && data.results.length > 0) {
                     container.innerHTML = data.results.map(p => `
-                        <div class="feature-card group cursor-pointer" onclick="window.location.href='/campaign/${p.id}'">
-                            <div class="h-48 overflow-hidden relative bg-gray-200">
-                                <img src="${p.image}" class="w-full h-full object-cover transition duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0">
-                                <div class="absolute top-4 right-4 bg-yellow-500 text-white text-[0.6rem] font-bold px-2 py-1 uppercase">${p.status}</div>
+                        <div class="feature-card group cursor-pointer overflow-hidden bg-white" onclick="window.location.href='/campaign/${p.id}'">
+                            <div class="h-64 overflow-hidden relative">
+                                <img src="${p.image}" class="w-full h-full object-cover transition duration-1000 group-hover:scale-110 grayscale group-hover:grayscale-0">
+                                <div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition duration-500"></div>
+                                <div class="absolute top-6 right-6 bg-yellow-500 text-white text-[0.6rem] font-black px-3 py-1 uppercase tracking-widest">${p.status}</div>
                             </div>
-                            <div class="p-6">
-                                <div class="text-xs text-gray-400 font-mono mb-2">${p.client}</div>
-                                <h3 class="text-lg font-bold text-gray-900 mb-2 uppercase group-hover:text-yellow-600 transition">${p.title}</h3>
-                                <div class="w-12 h-1 bg-gray-200 mt-4 group-hover:bg-yellow-500 transition"></div>
+                            <div class="p-8 border-t border-gray-100">
+                                <div class="text-xs text-yellow-600 font-black uppercase tracking-[0.2em] mb-4">${p.client}</div>
+                                <h3 class="text-xl font-bold text-gray-900 mb-6 uppercase leading-tight group-hover:text-yellow-600 transition">${p.title}</h3>
+                                <div class="flex justify-between items-center text-xs font-mono text-gray-400">
+                                    <span>READ BRIEF &rarr;</span>
+                                    <span class="font-black text-gray-900">${p.budget}</span>
+                                </div>
                             </div>
                         </div>
                     `).join('');
                 } else {
-                    container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12">No operations found matching criteria.</div>';
+                    container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-12 font-mono uppercase tracking-widest">No operations detected in grid sector.</div>';
                 }
             } catch(e) {}
         }
