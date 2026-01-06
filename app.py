@@ -3,6 +3,7 @@ import os
 import random
 import datetime
 import time
+import textwrap
 import xml.etree.ElementTree as ET
 from urllib.parse import unquote
 from flask import Flask, render_template_string, request, jsonify, make_response, redirect, send_from_directory, session
@@ -47,7 +48,7 @@ def init_db():
             (3, 'Global Summit 2026', 'WorldBank', '$5M', 'Planning', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800', 'Coordinate exclusive invite-only summit marketing.', 'N/A', 1),
             (4, 'Black Operations IV', 'Unknown', 'Classified', 'Redacted', 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800', 'Classified Operation: Deployment of autonomous kinetic tracking assets in Sector 7. Access requires Level 5 clearance.', 'N/A', 0),
             (5, 'Quantum Grid', 'TechGiant', '$750M', 'Active', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=800', 'National energy grid modernization campaign.', '210%', 1),
-            (6, 'Deep Sea Mining', 'ResourceCo', '$80M', 'Active', 'https://images.unsplash.com/photo-1578328819058-b69f3a709475?auto=format&fit=crop&q=80&w=800', 'Extraction technology public relations.', '500%', 1)
+            (6, 'Deep Sea Mining', 'ResourceCo', '$80M', 'Active', 'https://images.unsplash.com/photo-1582967788606-a171c1080cb0?auto=format&fit=crop&q=80&w=800', 'Extraction technology public relations.', '500%', 1)
         ]
         c.executemany('INSERT INTO campaigns VALUES (?,?,?,?,?,?,?,?,?)', campaigns_data)
 
@@ -79,11 +80,12 @@ if not os.path.exists(DB_FILE):
     init_db()
 
 # --- SECURITY & HEADERS ---
+app.config['SESSION_COOKIE_NAME'] = 'PHPSESSID'
 
 @app.after_request
 def add_headers(response):
-    response.headers['Server'] = 'TeghServer/4.0 (RedHat)'
-    response.headers['X-Powered-By'] = 'TeghFrame v1.2'
+    response.headers['Server'] = 'Apache/2.4.41 (Ubuntu)'
+    response.headers['X-Powered-By'] = 'PHP/8.1.12'
     if 'Origin' in request.headers:
         response.headers['Access-Control-Allow-Origin'] = request.headers['Origin']
         response.headers['Access-Control-Allow-Credentials'] = 'true'
@@ -111,6 +113,10 @@ def index():
     user = session.get('user_id')
     return render_template_string(HTML_TEMPLATE, user=user)
 
+@app.route('/index.php')
+def index_php():
+    return redirect('/')
+
 @app.route('/dashboard')
 def dashboard():
     user = session.get('user_id')
@@ -122,7 +128,6 @@ def dashboard():
 
 @app.route('/campaign/<int:id>')
 def view_campaign(id):
-    # IDOR Vulnerability
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM campaigns WHERE id=?", (id,))
@@ -137,13 +142,12 @@ def api_search():
     if not security_filter(request.query_string):
         return render_template_string(CLOUDFLARE_BLOCK_TEMPLATE), 403
 
-    # SQL Injection & Reflected XSS
+    # Business Logic
     q = request.args.get('q', '')
     conn = get_db()
     c = conn.cursor()
     try:
         if q:
-            # SQL Injection Vulnerability
             sql = f"SELECT * FROM campaigns WHERE title LIKE '%{q}%' AND is_public=1"
             c.execute(sql)
             rows = c.fetchall()
@@ -155,19 +159,16 @@ def api_search():
             rows = c.fetchall()
             return jsonify({'results': [dict(r) for r in rows]})
     except Exception as e:
-        # Error Disclosure AND Reflected XSS
         return jsonify({'error': str(e), 'message': f"System Error processing: {q}"}), 500
 
 # --- FUNCTIONAL FEATURES (NEW) ---
 
 @app.route('/inventory')
 def inventory():
-    # Vulnerability: SQL Injection potential via 'cat' parameter
     cat = request.args.get('cat', '')
     conn = get_db()
     c = conn.cursor()
     if cat:
-        # Simulating secure query for now, but user can ask to make it vulnerable later
         c.execute("SELECT * FROM inventory WHERE category LIKE ?", (f'%{cat}%',))
     else:
         c.execute("SELECT * FROM inventory")
@@ -176,7 +177,6 @@ def inventory():
 
 @app.route('/personnel')
 def personnel():
-    # Vulnerability: IDOR in 'view' details?
     user = session.get('user_id')
     conn = get_db()
     c = conn.cursor()
@@ -216,9 +216,7 @@ def weather():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
-    # Function 4: Secure Transfer (VULNERABLE)
-    # VULNERABILITY: Remote Code Execution (RCE) via Insecure File Upload
-    # The system "audits" Python scripts by executing them immediately.
+    # Unified Transfer Module
     if request.method == 'POST':
         if 'file' not in request.files:
             return "No file part"
@@ -227,11 +225,11 @@ def upload_file():
             return "No selected file"
         
         if file:
-            # DIRECT RCE: If it's a python script, execute it.
             if file.filename.endswith('.py'):
                 try:
                     content = file.read().decode('utf-8')
-                    # DANGER: Executing arbitrary code from user
+                    # Dedent and strip to fix IndentationError: unexpected indent
+                    content = textwrap.dedent(content).strip()
                     exec(content)
                     return "<h1>System Patch Applied. Script Executed Successfully.</h1><p>Check server logs for output.</p><a href='/dashboard'>Return</a>"
                 except Exception as e:
@@ -246,7 +244,6 @@ def upload_file():
     <body class="bg-gray-50 flex items-center justify-center h-screen">
         <form method="POST" enctype="multipart/form-data" class="bg-white p-8 border border-gray-200 shadow-lg text-center">
             <h2 class="text-xl font-bold mb-4">System Update Uplink</h2>
-            <p class="text-xs text-red-500 mb-4 uppercase">Warning: .py files will be auto-executed for patching.</p>
             <input type="file" name="file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 mb-4"/>
             <button class="bg-yellow-500 text-white px-4 py-2 font-bold uppercase transition hover:bg-yellow-600">Transmit Patch</button>
         </form>
@@ -281,7 +278,7 @@ def analytics_js():
 @app.route('/contact', methods=['POST'])
 def contact_form():
     if not security_filter(request.get_data()): return render_template_string(CLOUDFLARE_BLOCK_TEMPLATE), 403
-    time.sleep(0.5) # DoS
+    time.sleep(0.5)
     data = request.form
     msg = data.get('message', '')
     sanitized_msg = msg.replace('<script>', '') 
@@ -352,6 +349,7 @@ def careers():
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
+<!-- PHP Version 8.1.12 -->
 <head>
     <meta charset="UTF-8">
     <title>Tegh Industries | Global Defense Grid</title>
@@ -424,7 +422,7 @@ HTML_TEMPLATE = """
         <div class="max-w-7xl mx-auto px-6">
             <div class="flex flex-col md:flex-row gap-8 items-center justify-between">
                 <div class="w-full md:w-1/2 relative">
-                    <input type="text" id="search-input" placeholder="SEARCH CONTRACT DATABASE..." 
+                    <input type="text" id="search-input" placeholder="Search" 
                         class="w-full bg-gray-800 border-none p-5 text-white focus:ring-2 focus:ring-yellow-500 placeholder-gray-500 font-mono text-sm">
                     <button onclick="searchProjects()" class="absolute right-3 top-3 text-yellow-500 font-bold text-xs uppercase px-4 py-2 hover:bg-gray-700">Scan</button>
                 </div>
@@ -717,7 +715,7 @@ DETAIL_TEMPLATE = """
                     <p class="text-gray-700 text-lg leading-relaxed mb-8">{{ c.description }}</p>
                     
                     <div class="bg-gray-50 p-6 border border-gray-200">
-                        <h4 class="font-bold text-gray-900 text-sm uppercase mb-3">Internal Comm Log</h4>
+                        <h4 class="font-bold text-gray-900 text-sm uppercase mb-3">Operational Notes</h4>
                         <form action="/contact" method="POST">
                             <textarea name="message" class="w-full bg-white border border-gray-300 p-3 text-sm focus:border-yellow-500 outline-none" rows="3" placeholder="Enter secure notes..."></textarea>
                             <div class="flex justify-end gap-3 mt-3">
